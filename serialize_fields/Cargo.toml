@@ -12,7 +12,7 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
-serialize_fields_macro = { version = "0.1.0", path = "../serialize_fields_macro" }
+serialize_fields_macro = { version = "0.2.0", path = "../serialize_fields_macro" }
 serde.workspace = true
 serde_json.workspace = true
 
