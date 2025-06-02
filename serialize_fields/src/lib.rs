@@ -1,0 +1,326 @@
+//! # SerializeFields
+//!
+//! A Rust procedural macro that enables **dynamic field selection** for struct serialization.
+//! Control exactly which fields get serialized at runtime using a hierarchical field selector system.
+//!
+//! ## Features
+//!
+//! - 🎯 **Dynamic Field Selection**: Choose which fields to serialize at runtime
+//! - 🌳 **Hierarchical Selection**: Use dot notation for nested structs (`"user.profile.name"`)
+//! - 🔧 **Type Safe**: Compile-time validation of field paths
+//! - 🚀 **Zero Runtime Cost**: Only enabled fields are processed during serialization
+//! - 📦 **Serde Integration**: Works seamlessly with the serde ecosystem
+//! - 🔄 **Collection Support**: Handles `Vec`, `Option`, `HashMap`, and other containers
+//!
+//! ## Quick Start
+//!
+//! ```rust
+//! use serialize_fields::{SerializeFields, SerializeFieldsTrait};
+//! use serde::{Serialize, Deserialize};
+//!
+//! #[derive(SerializeFields, Serialize, Deserialize)]
+//! struct User {
+//!     id: u32,
+//!     name: Option<String>,
+//!     email: Option<String>,
+//! }
+//!
+//! let user = User {
+//!     id: 123,
+//!     name: Some("Alice".to_string()),
+//!     email: Some("alice@example.com".to_string()),
+//! };
+//!
+//! // Create field selector using the trait method
+//! let mut fields = user.serialize_fields();
+//! fields.enable_dot_hierarchy("id");
+//! fields.enable_dot_hierarchy("name");
+//!
+//! // Serialize with selected fields only
+//! let json = serde_json::to_string(&SerializeFields(&user, &fields)).unwrap();
+//! // Output: {"id":123,"name":"Alice"}
+//! ```
+//!
+//! ## Advanced Usage
+//!
+//! ### Nested Structs
+//!
+//! ```rust
+//! # use serialize_fields::{SerializeFields, SerializeFieldsTrait};
+//! # use serde::{Serialize, Deserialize};
+//! #[derive(SerializeFields, Serialize, Deserialize)]
+//! struct User {
+//!     id: u32,
+//!     profile: UserProfile,
+//! }
+//!
+//! #[derive(SerializeFields, Serialize, Deserialize)]
+//! struct UserProfile {
+//!     bio: Option<String>,
+//!     avatar_url: Option<String>,
+//! }
+//!
+//! # let user = User {
+//! #     id: 123,
+//! #     profile: UserProfile {
+//! #         bio: Some("Software Engineer".to_string()),
+//! #         avatar_url: Some("https://example.com/avatar.jpg".to_string()),
+//! #     },
+//! # };
+//! let mut fields = user.serialize_fields();
+//! fields.enable_dot_hierarchy("id");
+//! fields.enable_dot_hierarchy("profile.bio");  // Nested field selection
+//!
+//! let json = serde_json::to_string(&SerializeFields(&user, &fields)).unwrap();
+//! // Output: {"id":123,"profile":{"bio":"Software Engineer"}}
+//! ```
+//!
+//! ### Dynamic Field Selection
+//!
+//! ```rust
+//! # use serialize_fields::{SerializeFields, SerializeFieldsTrait};
+//! # use serde::{Serialize, Deserialize};
+//! # #[derive(SerializeFields, Serialize, Deserialize)]
+//! # struct User { id: u32, name: Option<String>, email: Option<String> }
+//! # let user = User { id: 123, name: Some("Alice".to_string()), email: Some("alice@example.com".to_string()) };
+//! fn serialize_user_with_fields(user: &User, requested_fields: &[&str]) -> String {
+//!     let mut selector = user.serialize_fields();
+//!     
+//!     for field in requested_fields {
+//!         selector.enable_dot_hierarchy(field);
+//!     }
+//!     
+//!     serde_json::to_string(&SerializeFields(user, &selector)).unwrap()
+//! }
+//!
+//! // Usage: GET /users/123?fields=id,name
+//! let fields = vec!["id", "name"];
+//! let json = serialize_user_with_fields(&user, &fields);
+//! ```
+
+#![doc(html_root_url = "https://docs.rs/serialize_fields/0.1.0")]
+#![cfg_attr(docsrs, feature(doc_cfg))]
+
+// Re-export the derive macro
+pub use serialize_fields_macro::SerializeFields;
+
+/// Trait for types that can provide field selectors for dynamic serialization.
+///
+/// This trait is automatically implemented by the `#[derive(SerializeFields)]` macro
+/// and provides a convenient way to create field selectors for a type.
+///
+/// # Examples
+///
+/// ```rust
+/// # use serialize_fields::{SerializeFields as SerializeFieldsDerive, SerializeFieldsTrait};
+/// # use serde::{Serialize, Deserialize};
+/// #[derive(SerializeFieldsDerive, Serialize, Deserialize)]
+/// struct User {
+///     id: u32,
+///     name: String,
+/// }
+///
+/// # let user = User { id: 1, name: "Alice".to_string() };
+/// // Create a field selector using the trait method
+/// let mut fields = user.serialize_fields();
+/// fields.enable_dot_hierarchy("id");
+/// fields.enable_dot_hierarchy("name");
+/// ```
+pub trait SerializeFieldsTrait {
+    /// The type of field selector for this struct.
+    type FieldSelector: FieldSelector;
+    
+    /// Create a new field selector for this type.
+    ///
+    /// This is a convenience method that's equivalent to calling
+    /// `{StructName}SerializeFieldSelector::new()` but provides a more
+    /// ergonomic API through the trait.
+    fn serialize_fields(&self) -> Self::FieldSelector;
+}
+
+/// A wrapper struct that combines data with a field selector for serialization.
+///
+/// This is the core type that enables dynamic field selection. It wraps your data
+/// and a field selector, implementing `Serialize` to only include enabled fields.
+///
+/// # Type Parameters
+///
+/// - `T`: The type of data being serialized
+/// - `S`: The type of field selector (typically generated by the derive macro)
+///
+/// # Examples
+///
+/// ```rust
+/// # use serialize_fields::{SerializeFields, SerializeFields as SerializeFieldsDerive};
+/// # use serde::{Serialize, Deserialize};
+/// # #[derive(SerializeFieldsDerive, Serialize, Deserialize)]
+/// # struct User { id: u32, name: String }
+/// # let user = User { id: 1, name: "Alice".to_string() };
+/// # let mut selector = UserSerializeFieldSelector::new();
+/// # selector.enable_dot_hierarchy("id");
+/// let wrapper = SerializeFields(&user, &selector);
+/// let json = serde_json::to_string(&wrapper).unwrap();
+/// ```
+pub struct SerializeFields<'a, T, S>(pub &'a T, pub &'a S);
+
+/// Helper trait for field selectors to provide common functionality.
+///
+/// This trait is automatically implemented for all generated field selectors.
+pub trait FieldSelector {
+    /// Create a new selector with all fields disabled.
+    fn new() -> Self;
+    
+    /// Enable a field using dot notation.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// selector.enable_dot_hierarchy("name");           // Simple field
+    /// selector.enable_dot_hierarchy("profile.bio");    // Nested field
+    /// selector.enable_dot_hierarchy("posts.title");    // Field in collection
+    /// ```
+    fn enable_dot_hierarchy(&mut self, field: &str);
+    
+    /// Enable a field using a slice of field names.
+    ///
+    /// This is useful when you already have the field path split.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// selector.enable(&["name"]);                  // Simple field
+    /// selector.enable(&["profile", "bio"]);       // Nested field
+    /// ```
+    fn enable(&mut self, field_hierarchy: &[&str]);
+}
+
+/// Utility functions for working with field selectors.
+pub mod utils {
+    /// Parse a comma-separated list of field names.
+    ///
+    /// This is useful for parsing query parameters or configuration strings.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use serialize_fields::utils::parse_field_list;
+    ///
+    /// let fields = parse_field_list("id,name,profile.bio");
+    /// assert_eq!(fields, vec!["id", "name", "profile.bio"]);
+    /// ```
+    pub fn parse_field_list(fields: &str) -> Vec<&str> {
+        fields
+            .split(',')
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .collect()
+    }
+
+    /// Create a field selector from a list of field names.
+    ///
+    /// This is a convenience function that combines parsing and enabling fields.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// use serialize_fields::utils::create_selector_from_list;
+    ///
+    /// let selector: UserSerializeFieldSelector = 
+    ///     create_selector_from_list("id,name,profile.bio");
+    /// ```
+    pub fn create_selector_from_list<T>(fields: &str) -> T 
+    where 
+        T: crate::FieldSelector 
+    {
+        let mut selector = T::new();
+        for field in parse_field_list(fields) {
+            selector.enable_dot_hierarchy(field);
+        }
+        selector
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde::{Serialize, Deserialize};
+
+    #[derive(SerializeFields, Serialize, Deserialize, Debug, PartialEq)]
+    struct TestUser {
+        id: u32,
+        name: String,
+        email: Option<String>,
+        profile: TestProfile,
+    }
+
+    #[derive(SerializeFields, Serialize, Deserialize, Debug, PartialEq)]
+    struct TestProfile {
+        bio: String,
+        age: Option<u32>,
+    }
+
+    fn create_test_user() -> TestUser {
+        TestUser {
+            id: 123,
+            name: "Alice".to_string(),
+            email: Some("alice@example.com".to_string()),
+            profile: TestProfile {
+                bio: "Software Engineer".to_string(),
+                age: Some(30),
+            },
+        }
+    }
+
+    #[test]
+    fn test_basic_field_selection() {
+        let user = create_test_user();
+        let mut selector = TestUserSerializeFieldSelector::new();
+        selector.enable_dot_hierarchy("id");
+        selector.enable_dot_hierarchy("name");
+
+        let json = serde_json::to_string(&SerializeFields(&user, &selector)).unwrap();
+        
+        // Parse back to verify only selected fields are present
+        let value: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let obj = value.as_object().unwrap();
+        
+        assert_eq!(obj.len(), 2);
+        assert_eq!(obj.get("id").unwrap().as_u64().unwrap(), 123);
+        assert_eq!(obj.get("name").unwrap().as_str().unwrap(), "Alice");
+        assert!(!obj.contains_key("email"));
+        assert!(!obj.contains_key("profile"));
+    }
+
+    #[test]
+    fn test_nested_field_selection() {
+        let user = create_test_user();
+        let mut selector = TestUserSerializeFieldSelector::new();
+        selector.enable_dot_hierarchy("id");
+        selector.enable_dot_hierarchy("profile.bio");
+
+        let json = serde_json::to_string(&SerializeFields(&user, &selector)).unwrap();
+        
+        let value: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let obj = value.as_object().unwrap();
+        
+        assert_eq!(obj.len(), 2);
+        assert_eq!(obj.get("id").unwrap().as_u64().unwrap(), 123);
+        
+        let profile = obj.get("profile").unwrap().as_object().unwrap();
+        assert_eq!(profile.len(), 1);
+        assert_eq!(profile.get("bio").unwrap().as_str().unwrap(), "Software Engineer");
+        assert!(!profile.contains_key("age"));
+    }
+
+    #[test]
+    fn test_utils_parse_field_list() {
+        let fields = utils::parse_field_list("id,name,profile.bio");
+        assert_eq!(fields, vec!["id", "name", "profile.bio"]);
+
+        let fields = utils::parse_field_list("  id  ,  name  ,  profile.bio  ");
+        assert_eq!(fields, vec!["id", "name", "profile.bio"]);
+
+        let fields = utils::parse_field_list("");
+        assert!(fields.is_empty());
+    }
+}

@@ -1,0 +1,32 @@
+[workspace]
+members = [
+    "serialize_fields",
+    "serialize_fields_macro",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+authors = ["merlleu <crates@merll.eu>"]
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/yourusername/serialize-fields"
+documentation = "https://docs.rs/serialize-fields"
+homepage = "https://github.com/yourusername/serialize-fields"
+description = "Dynamic field selection for struct serialization in Rust"
+keywords = ["serde", "serialization", "fields", "dynamic", "api"]
+categories = ["encoding", "web-programming"]
+
+[workspace.dependencies]
+# Core dependencies
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Proc macro dependencies  
+proc-macro2 = "1.0"
+quote = "1.0"
+syn = { version = "2.0", features = ["full"] }
+
+# Dev dependencies
+tokio = { version = "1.0", features = ["full"] }
+pretty_assertions = "1.4"
