@@ -13,8 +13,11 @@ use syn::{
 ///
 /// This macro generates:
 /// - A field selector struct (`{StructName}SerializeFieldSelector`)
-/// - Methods for enabling fields by hierarchy
-/// - `Serialize` implementations that respect field selection
+/// - Methods for enabling fields by hierarchy  
+/// - Implementation of `SerializeFieldsTrait` with serialization logic
+///
+/// The serialization is handled by a generic `Serialize` implementation that
+/// works with any type implementing `SerializeFieldsTrait`.
 ///
 /// # Examples
 ///
@@ -33,7 +36,7 @@ use syn::{
 /// This generates:
 /// - `UserSerializeFieldSelector` struct
 /// - Methods: `new()`, `enable_dot_hierarchy()`, `enable()`
-/// - `Serialize` impl for `SerializeFields<User, UserSerializeFieldSelector>`
+/// - `SerializeFieldsTrait` impl with `serialize_fields()` and `serialize()` methods
 #[proc_macro_derive(SerializeFields)]
 pub fn serialize_fields_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -77,7 +80,7 @@ pub fn serialize_fields_derive(input: TokenStream) -> TokenStream {
             enable_match_arms.push(quote! {
                 #field_name_str => {
                     match &mut self.#field_name {
-                        Some(ref mut nested) => nested.enable(&field_hierarchy[1..]),
+                        Some(nested) => nested.enable(&field_hierarchy[1..]),
                         None => {
                             let mut new_nested = #nested_selector_type::new();
                             new_nested.enable(&field_hierarchy[1..]);
@@ -178,24 +181,24 @@ pub fn serialize_fields_derive(input: TokenStream) -> TokenStream {
             fn serialize_fields(&self) -> Self::FieldSelector {
                 #selector_ident::new()
             }
-        }
-        
-        // SerializeFields implementation for this specific struct
-        impl<'a> ::serde::Serialize for ::serialize_fields::SerializeFields<'a, #struct_name, #selector_ident> {
-            fn serialize<Se>(&self, serializer: Se) -> Result<Se::Ok, Se::Error>
+            
+            fn serialize<__S>(
+                &self,
+                field_selector: &Self::FieldSelector,
+                __serializer: __S,
+            ) -> Result<__S::Ok, __S::Error>
             where
-                Se: ::serde::Serializer,
+                __S: ::serde::Serializer,
             {
                 use ::serde::ser::SerializeStruct;
                 use ::serialize_fields::SerializeFields;
                 
-                let data = self.0;
-                let field_selector = self.1;
+                let data = self;
                 
                 // Count enabled fields
                 let field_count = 0 #(#count_enabled_fields)*;
                 
-                let mut state = serializer.serialize_struct(stringify!(#struct_name), field_count)?;
+                let mut state = __serializer.serialize_struct(stringify!(#struct_name), field_count)?;
                 
                 #(#serialize_fields)*
                 
@@ -204,71 +207,7 @@ pub fn serialize_fields_derive(input: TokenStream) -> TokenStream {
         }
     };
     
-    // Also generate Vec serialization support
-    let vec_impl = generate_vec_serialization(&struct_name, &selector_ident);
-    let option_impl = generate_option_serialization(&struct_name, &selector_ident);
-    
-    let final_output = quote! {
-        #expanded
-        #vec_impl
-        #option_impl
-    };
-    
-    TokenStream::from(final_output)
-}
-
-/// Generate serialization support for Vec<T> where T is our struct
-fn generate_vec_serialization(
-    struct_name: &syn::Ident, 
-    selector_ident: &syn::Ident
-) -> proc_macro2::TokenStream {
-    quote! {
-        impl<'a> ::serde::Serialize for ::serialize_fields::SerializeFields<'a, Vec<#struct_name>, #selector_ident> {
-            fn serialize<Se>(&self, serializer: Se) -> Result<Se::Ok, Se::Error>
-            where
-                Se: ::serde::Serializer,
-            {
-                use ::serde::ser::SerializeSeq;
-                use ::serialize_fields::SerializeFields;
-                
-                let data = self.0;
-                let field_selector = self.1;
-                
-                let mut seq = serializer.serialize_seq(Some(data.len()))?;
-                
-                for item in data {
-                    seq.serialize_element(&SerializeFields(item, field_selector))?;
-                }
-                
-                seq.end()
-            }
-        }
-    }
-}
-
-/// Generate serialization support for Option<T> where T is our struct
-fn generate_option_serialization(
-    struct_name: &syn::Ident, 
-    selector_ident: &syn::Ident
-) -> proc_macro2::TokenStream {
-    quote! {
-        impl<'a> ::serde::Serialize for ::serialize_fields::SerializeFields<'a, Option<#struct_name>, #selector_ident> {
-            fn serialize<Se>(&self, serializer: Se) -> Result<Se::Ok, Se::Error>
-            where
-                Se: ::serde::Serializer,
-            {
-                use ::serialize_fields::SerializeFields;
-                
-                let data = self.0;
-                let field_selector = self.1;
-                
-                match data {
-                    Some(ref inner) => SerializeFields(inner, field_selector).serialize(serializer),
-                    None => serializer.serialize_none(),
-                }
-            }
-        }
-    }
+    TokenStream::from(expanded)
 }
 
 /// Analyze a field type to determine if it's a nested struct and what type it is
@@ -308,7 +247,7 @@ fn analyze_field_type(ty: &Type) -> (bool, String) {
             // For arrays like [T; N], check the element type
             analyze_field_type(&type_array.elem)
         }
-        Type::Tuple(type_tuple) => {
+        Type::Tuple(_type_tuple) => {
             // For tuples, assume they're not custom structs
             (false, String::new())
         }

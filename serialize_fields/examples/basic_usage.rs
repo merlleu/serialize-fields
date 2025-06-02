@@ -6,7 +6,7 @@
 //! - Enabling specific fields
 //! - Serializing with field selection
 
-use serialize_fields::{SerializeFields, FieldSelector, SerializeFieldsTrait};
+use serialize_fields::{SerializeFields, SerializeFieldsTrait};
 use serde::{Serialize, Deserialize};
 
 #[derive(SerializeFields, Serialize, Deserialize, Debug)]

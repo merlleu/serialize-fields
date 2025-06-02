@@ -74,7 +74,7 @@ fn create_collection_struct() -> CollectionStruct {
 }
 
 #[test]
-fn test_serialize_fields_trait() {
+fn test_serialize_fields_trait_api() {
     let data = create_simple_struct();
     
     // Test using the trait method

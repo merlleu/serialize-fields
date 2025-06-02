@@ -11,6 +11,7 @@
 //! - 🚀 **Zero Runtime Cost**: Only enabled fields are processed during serialization
 //! - 📦 **Serde Integration**: Works seamlessly with the serde ecosystem
 //! - 🔄 **Collection Support**: Handles `Vec`, `Option`, `HashMap`, and other containers
+//! - 🏗️ **Generic Architecture**: Single trait-based serialization implementation
 //!
 //! ## Quick Start
 //!
@@ -107,7 +108,7 @@ pub use serialize_fields_macro::SerializeFields;
 /// Trait for types that can provide field selectors for dynamic serialization.
 ///
 /// This trait is automatically implemented by the `#[derive(SerializeFields)]` macro
-/// and provides a convenient way to create field selectors for a type.
+/// and provides both field selector creation and serialization functionality.
 ///
 /// # Examples
 ///
@@ -136,6 +137,24 @@ pub trait SerializeFieldsTrait {
     /// `{StructName}SerializeFieldSelector::new()` but provides a more
     /// ergonomic API through the trait.
     fn serialize_fields(&self) -> Self::FieldSelector;
+    
+    /// Serialize this struct using the provided field selector.
+    ///
+    /// This method is called by the generic `Serialize` implementation
+    /// for `SerializeFields` and handles the actual serialization logic
+    /// with field filtering.
+    ///
+    /// # Arguments
+    ///
+    /// * `field_selector` - The field selector that determines which fields to include
+    /// * `serializer` - The serde serializer to use
+    fn serialize<__S>(
+        &self,
+        field_selector: &Self::FieldSelector,
+        __serializer: __S,
+    ) -> Result<__S::Ok, __S::Error>
+    where
+        __S: serde::Serializer;
 }
 
 /// A wrapper struct that combines data with a field selector for serialization.
@@ -162,6 +181,67 @@ pub trait SerializeFieldsTrait {
 /// let json = serde_json::to_string(&wrapper).unwrap();
 /// ```
 pub struct SerializeFields<'a, T, S>(pub &'a T, pub &'a S);
+
+
+impl<'a, T, S> serde::Serialize for SerializeFields<'a, T, S>
+where
+    T: SerializeFieldsTrait<FieldSelector = S>,
+    S: FieldSelector,
+{
+    fn serialize<Se>(&self, serializer: Se) -> Result<Se::Ok, Se::Error>
+    where
+        Se: serde::Serializer,
+    {
+        self.0.serialize(self.1, serializer)
+    }
+}
+
+// Generic implementation for Vec<T> where T implements SerializeFieldsTrait
+impl<'a, T, S> serde::Serialize for SerializeFields<'a, Vec<T>, S>
+where
+    T: SerializeFieldsTrait<FieldSelector = S>,
+    S: FieldSelector,
+{
+    fn serialize<Se>(&self, serializer: Se) -> Result<Se::Ok, Se::Error>
+    where
+        Se: serde::Serializer,
+    {
+        use serde::ser::SerializeSeq;
+        
+        let data = self.0;
+        let field_selector = self.1;
+        
+        let mut seq = serializer.serialize_seq(Some(data.len()))?;
+        
+        for item in data {
+            seq.serialize_element(&SerializeFields(item, field_selector))?;
+        }
+        
+        seq.end()
+    }
+}
+
+// Generic implementation for Option<T> where T implements SerializeFieldsTrait
+impl<'a, T, S> serde::Serialize for SerializeFields<'a, Option<T>, S>
+
+
+where
+    T: SerializeFieldsTrait<FieldSelector = S>,
+    S: FieldSelector,
+{
+    fn serialize<Se>(&self, serializer: Se) -> Result<Se::Ok, Se::Error>
+    where
+        Se: serde::Serializer,
+    {
+        let data = self.0;
+        let field_selector = self.1;
+        
+        match data {
+            Some(inner) => SerializeFields(inner, field_selector).serialize(serializer),
+            None => serializer.serialize_none()
+        }
+    }
+}
 
 /// Helper trait for field selectors to provide common functionality.
 ///
