@@ -74,6 +74,7 @@ pub fn serialize_fields_derive(input: TokenStream) -> TokenStream {
             );
             
             selector_fields.push(quote! {
+                #[serde(skip_serializing_if = "Option::is_none")]
                 pub #field_name: Option<#nested_selector_type>
             });
             
@@ -126,7 +127,7 @@ pub fn serialize_fields_derive(input: TokenStream) -> TokenStream {
     
     // Generate the complete implementation
     let expanded = quote! {
-        #[derive(Debug, Clone)]
+        #[derive(Debug, Clone, PartialEq, Eq, Hash, ::serde::Serialize)]
         pub struct #selector_ident {
             #(#selector_fields,)*
         }
