@@ -1,11 +1,11 @@
 //! Integration tests for serialize_fields
-//! 
+//!
 //! These tests verify the macro works correctly with various struct configurations
 //! and that the generated code functions as expected.
 
-use serialize_fields::{SerializeFields, FieldSelector, SerializeFieldsTrait};
-use serde::{Serialize, Deserialize};
-use serde_json::{Value, Map};
+use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value};
+use serialize_fields::{FieldSelector, SerializeFields, SerializeFieldsTrait};
 
 #[derive(SerializeFields, Serialize, Deserialize, Debug, PartialEq)]
 struct SimpleStruct {
@@ -76,7 +76,7 @@ fn create_collection_struct() -> CollectionStruct {
 #[test]
 fn test_serialize_fields_trait_api() {
     let data = create_simple_struct();
-    
+
     // Test using the trait method
     let mut selector = data.serialize_fields();
     selector.enable_dot_hierarchy("id");
@@ -95,7 +95,7 @@ fn test_serialize_fields_trait_api() {
 #[test]
 fn test_serialize_fields_trait_nested() {
     let data = create_nested_struct();
-    
+
     // Test trait method with nested fields
     let mut selector = data.serialize_fields();
     selector.enable_dot_hierarchy("id");
@@ -107,7 +107,7 @@ fn test_serialize_fields_trait_nested() {
 
     assert_eq!(obj.len(), 2);
     assert_eq!(obj.get("id").unwrap().as_u64().unwrap(), 456);
-    
+
     let inner = obj.get("inner").unwrap().as_object().unwrap();
     assert_eq!(inner.len(), 1);
     assert_eq!(inner.get("value").unwrap().as_str().unwrap(), "Inner Value");
@@ -157,7 +157,10 @@ fn test_all_fields_selected() {
     assert_eq!(obj.len(), 3);
     assert_eq!(obj.get("id").unwrap().as_u64().unwrap(), 123);
     assert_eq!(obj.get("name").unwrap().as_str().unwrap(), "Test");
-    assert_eq!(obj.get("optional_field").unwrap().as_str().unwrap(), "Optional");
+    assert_eq!(
+        obj.get("optional_field").unwrap().as_str().unwrap(),
+        "Optional"
+    );
 }
 
 #[test]
@@ -173,7 +176,7 @@ fn test_nested_field_selection() {
 
     assert_eq!(obj.len(), 2);
     assert_eq!(obj.get("id").unwrap().as_u64().unwrap(), 456);
-    
+
     let inner = obj.get("inner").unwrap().as_object().unwrap();
     assert_eq!(inner.len(), 1);
     assert_eq!(inner.get("value").unwrap().as_str().unwrap(), "Inner Value");
@@ -194,15 +197,18 @@ fn test_nested_all_fields() {
     let obj = value.as_object().unwrap();
 
     assert_eq!(obj.len(), 3);
-    
+
     let inner = obj.get("inner").unwrap().as_object().unwrap();
     assert_eq!(inner.len(), 2);
     assert_eq!(inner.get("value").unwrap().as_str().unwrap(), "Inner Value");
     assert_eq!(inner.get("number").unwrap().as_u64().unwrap(), 42);
-    
+
     let optional_inner = obj.get("optional_inner").unwrap().as_object().unwrap();
     assert_eq!(optional_inner.len(), 1);
-    assert_eq!(optional_inner.get("value").unwrap().as_str().unwrap(), "Optional Inner");
+    assert_eq!(
+        optional_inner.get("value").unwrap().as_str().unwrap(),
+        "Optional Inner"
+    );
 }
 
 #[test]
@@ -219,15 +225,15 @@ fn test_collection_field_selection() {
 
     assert_eq!(obj.len(), 3);
     assert_eq!(obj.get("id").unwrap().as_u64().unwrap(), 789);
-    
+
     let items = obj.get("items").unwrap().as_array().unwrap();
     assert_eq!(items.len(), 2);
-    
+
     let item1 = items[0].as_object().unwrap();
     assert_eq!(item1.len(), 1);
     assert_eq!(item1.get("value").unwrap().as_str().unwrap(), "Item 1");
     assert!(!item1.contains_key("number"));
-    
+
     let tags = obj.get("tags").unwrap().as_array().unwrap();
     assert_eq!(tags.len(), 2);
     assert_eq!(tags[0].as_str().unwrap(), "tag1");
@@ -247,7 +253,7 @@ fn test_enable_method_with_hierarchy() {
 
     assert_eq!(obj.len(), 2);
     assert_eq!(obj.get("id").unwrap().as_u64().unwrap(), 456);
-    
+
     let inner = obj.get("inner").unwrap().as_object().unwrap();
     assert_eq!(inner.len(), 1);
     assert_eq!(inner.get("value").unwrap().as_str().unwrap(), "Inner Value");
@@ -257,11 +263,11 @@ fn test_enable_method_with_hierarchy() {
 fn test_field_selector_trait() {
     // Test that the FieldSelector trait is implemented
     let mut selector = SimpleStructSerializeFieldSelector::new();
-    
+
     // Test trait methods
     selector.enable_dot_hierarchy("id");
     selector.enable(&["name"]);
-    
+
     // Verify fields are enabled
     assert!(selector.id.is_some());
     assert!(selector.name.is_some());
@@ -271,15 +277,14 @@ fn test_field_selector_trait() {
 #[test]
 fn test_utility_functions() {
     use serialize_fields::utils;
-    
+
     // Test parse_field_list
     let fields = utils::parse_field_list("id,name,inner.value");
     assert_eq!(fields, vec!["id", "name", "inner.value"]);
-    
+
     // Test create_selector_from_list
-    let selector: SimpleStructSerializeFieldSelector = 
-        utils::create_selector_from_list("id,name");
-    
+    let selector: SimpleStructSerializeFieldSelector = utils::create_selector_from_list("id,name");
+
     assert!(selector.id.is_some());
     assert!(selector.name.is_some());
     assert!(selector.optional_field.is_none());
@@ -288,10 +293,10 @@ fn test_utility_functions() {
 #[test]
 fn test_empty_field_hierarchy() {
     let mut selector = SimpleStructSerializeFieldSelector::new();
-    
+
     // Empty hierarchy should not panic
     selector.enable(&[]);
-    
+
     // Verify no fields are enabled
     assert!(selector.id.is_none());
     assert!(selector.name.is_none());
@@ -301,14 +306,14 @@ fn test_empty_field_hierarchy() {
 #[test]
 fn test_invalid_field_names() {
     let mut selector = SimpleStructSerializeFieldSelector::new();
-    
+
     // Invalid field names should be silently ignored
     selector.enable_dot_hierarchy("nonexistent_field");
     selector.enable_dot_hierarchy("id.invalid_nested");
-    
+
     // Valid field should still work
     selector.enable_dot_hierarchy("id");
-    
+
     assert!(selector.id.is_some());
     assert!(selector.name.is_none());
 }
@@ -316,15 +321,15 @@ fn test_invalid_field_names() {
 #[test]
 fn test_json_roundtrip_compatibility() {
     let original = create_simple_struct();
-    
+
     // Serialize with all fields enabled
     let mut selector = SimpleStructSerializeFieldSelector::new();
     selector.enable_dot_hierarchy("id");
     selector.enable_dot_hierarchy("name");
     selector.enable_dot_hierarchy("optional_field");
-    
+
     let json = serde_json::to_string(&SerializeFields(&original, &selector)).unwrap();
-    
+
     // Should be able to deserialize back to original struct
     let deserialized: SimpleStruct = serde_json::from_str(&json).unwrap();
     assert_eq!(original, deserialized);

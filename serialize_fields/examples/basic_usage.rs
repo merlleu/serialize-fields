@@ -1,13 +1,13 @@
 //! Basic usage example for serialize_fields
-//! 
+//!
 //! This example demonstrates the fundamental concepts:
 //! - Deriving SerializeFields on structs
 //! - Creating field selectors
 //! - Enabling specific fields
 //! - Serializing with field selection
 
+use serde::{Deserialize, Serialize};
 use serialize_fields::{SerializeFields, SerializeFieldsTrait};
-use serde::{Serialize, Deserialize};
 
 #[derive(SerializeFields, Serialize, Deserialize, Debug)]
 struct User {
@@ -51,7 +51,7 @@ fn main() {
     let mut basic_fields = UserSerializeFieldSelector::new();
     basic_fields.enable_dot_hierarchy("id");
     basic_fields.enable_dot_hierarchy("name");
-    
+
     let json = serde_json::to_string_pretty(&SerializeFields(&user, &basic_fields)).unwrap();
     println!("{}\n", json);
 
@@ -62,7 +62,7 @@ fn main() {
     contact_fields.enable_dot_hierarchy("name");
     contact_fields.enable_dot_hierarchy("email");
     contact_fields.enable_dot_hierarchy("phone");
-    
+
     let json = serde_json::to_string_pretty(&SerializeFields(&user, &contact_fields)).unwrap();
     println!("{}\n", json);
 
@@ -73,7 +73,7 @@ fn main() {
     profile_fields.enable_dot_hierarchy("name");
     profile_fields.enable_dot_hierarchy("profile.bio");
     profile_fields.enable_dot_hierarchy("profile.website");
-    
+
     let json = serde_json::to_string_pretty(&SerializeFields(&user, &profile_fields)).unwrap();
     println!("{}\n", json);
 
@@ -82,7 +82,7 @@ fn main() {
     let mut social_fields = UserSerializeFieldSelector::new();
     social_fields.enable_dot_hierarchy("name");
     social_fields.enable_dot_hierarchy("profile.social_links");
-    
+
     let json = serde_json::to_string_pretty(&SerializeFields(&user, &social_fields)).unwrap();
     println!("{}\n", json);
 
@@ -92,7 +92,7 @@ fn main() {
     hierarchy_fields.enable(&["id"]);
     hierarchy_fields.enable(&["email"]);
     hierarchy_fields.enable(&["profile", "avatar_url"]);
-    
+
     let json = serde_json::to_string_pretty(&SerializeFields(&user, &hierarchy_fields)).unwrap();
     println!("{}\n", json);
 
@@ -107,34 +107,35 @@ fn main() {
     trait_fields.enable_dot_hierarchy("id");
     trait_fields.enable_dot_hierarchy("name");
     trait_fields.enable_dot_hierarchy("profile.social_links");
-    
+
     let json = serde_json::to_string_pretty(&SerializeFields(&user, &trait_fields)).unwrap();
     println!("{}\n", json);
 
     // Example 8: Using utility functions
     println!("8. Using utility functions:");
     let field_list = "id,name,profile.bio";
-    let fields: UserSerializeFieldSelector = serialize_fields::utils::create_selector_from_list(field_list);
-    
+    let fields: UserSerializeFieldSelector =
+        serialize_fields::utils::create_selector_from_list(field_list);
+
     let json = serde_json::to_string_pretty(&SerializeFields(&user, &fields)).unwrap();
     println!("Fields from list '{}': {}\n", field_list, json);
 
     // Example 9: Comparing trait method vs manual creation
     println!("9. Trait method vs manual creation comparison:");
-    
+
     // Manual approach
     let mut manual_fields = UserSerializeFieldSelector::new();
     manual_fields.enable_dot_hierarchy("id");
     manual_fields.enable_dot_hierarchy("name");
-    
-    // Trait approach  
+
+    // Trait approach
     let mut trait_fields2 = user.serialize_fields();
     trait_fields2.enable_dot_hierarchy("id");
     trait_fields2.enable_dot_hierarchy("name");
-    
+
     let json_manual = serde_json::to_string(&SerializeFields(&user, &manual_fields)).unwrap();
     let json_trait = serde_json::to_string(&SerializeFields(&user, &trait_fields2)).unwrap();
-    
+
     println!("   Manual approach: {}", json_manual);
     println!("   Trait approach:  {}", json_trait);
     println!("   Results identical: {}", json_manual == json_trait);

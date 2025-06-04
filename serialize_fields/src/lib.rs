@@ -130,14 +130,14 @@ pub use serialize_fields_macro::SerializeFields;
 pub trait SerializeFieldsTrait {
     /// The type of field selector for this struct.
     type FieldSelector: FieldSelector;
-    
+
     /// Create a new field selector for this type.
     ///
     /// This is a convenience method that's equivalent to calling
     /// `{StructName}SerializeFieldSelector::new()` but provides a more
     /// ergonomic API through the trait.
     fn serialize_fields(&self) -> Self::FieldSelector;
-    
+
     /// Serialize this struct using the provided field selector.
     ///
     /// This method is called by the generic `Serialize` implementation
@@ -182,7 +182,6 @@ pub trait SerializeFieldsTrait {
 /// ```
 pub struct SerializeFields<'a, T, S>(pub &'a T, pub &'a S);
 
-
 impl<'a, T, S> serde::Serialize for SerializeFields<'a, T, S>
 where
     T: SerializeFieldsTrait<FieldSelector = S>,
@@ -207,24 +206,22 @@ where
         Se: serde::Serializer,
     {
         use serde::ser::SerializeSeq;
-        
+
         let data = self.0;
         let field_selector = self.1;
-        
+
         let mut seq = serializer.serialize_seq(Some(data.len()))?;
-        
+
         for item in data {
             seq.serialize_element(&SerializeFields(item, field_selector))?;
         }
-        
+
         seq.end()
     }
 }
 
 // Generic implementation for Option<T> where T implements SerializeFieldsTrait
 impl<'a, T, S> serde::Serialize for SerializeFields<'a, Option<T>, S>
-
-
 where
     T: SerializeFieldsTrait<FieldSelector = S>,
     S: FieldSelector,
@@ -235,11 +232,38 @@ where
     {
         let data = self.0;
         let field_selector = self.1;
-        
+
         match data {
             Some(inner) => SerializeFields(inner, field_selector).serialize(serializer),
-            None => serializer.serialize_none()
+            None => serializer.serialize_none(),
         }
+    }
+}
+
+// implement JsonSchema for SerializeFields<T, S> where T implements JsonSchema
+#[cfg(feature = "schemars")]
+impl<'a, T, S> schemars::JsonSchema for SerializeFields<'a, T, S>
+where
+    T: schemars::JsonSchema,
+    S: FieldSelector,
+{
+    // Required methods
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        T::schema_name()
+    }
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        T::json_schema(generator)
+    }
+
+    // Provided methods
+    fn always_inline_schema() -> bool {
+        T::always_inline_schema()
+    }
+    fn inline_schema() -> bool {
+        T::inline_schema()
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        T::schema_id()
     }
 }
 
@@ -249,7 +273,7 @@ where
 pub trait FieldSelector {
     /// Create a new selector with all fields disabled.
     fn new() -> Self;
-    
+
     /// Enable a field using dot notation.
     ///
     /// # Examples
@@ -260,7 +284,7 @@ pub trait FieldSelector {
     /// selector.enable_dot_hierarchy("posts.title");    // Field in collection
     /// ```
     fn enable_dot_hierarchy(&mut self, field: &str);
-    
+
     /// Enable a field using a slice of field names.
     ///
     /// This is useful when you already have the field path split.
@@ -305,12 +329,12 @@ pub mod utils {
     /// ```ignore
     /// use serialize_fields::utils::create_selector_from_list;
     ///
-    /// let selector: UserSerializeFieldSelector = 
+    /// let selector: UserSerializeFieldSelector =
     ///     create_selector_from_list("id,name,profile.bio");
     /// ```
-    pub fn create_selector_from_list<T>(fields: &str) -> T 
-    where 
-        T: crate::FieldSelector 
+    pub fn create_selector_from_list<T>(fields: &str) -> T
+    where
+        T: crate::FieldSelector,
     {
         let mut selector = T::new();
         for field in parse_field_list(fields) {

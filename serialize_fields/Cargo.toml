@@ -15,6 +15,7 @@ categories.workspace = true
 serialize_fields_macro = { version = "0.2.0", path = "../serialize_fields_macro" }
 serde.workspace = true
 serde_json.workspace = true
+schemars = {optional = true, workspace = true}
 
 [dev-dependencies]
 pretty_assertions.workspace = true
@@ -24,14 +25,9 @@ tokio.workspace = true
 name = "basic_usage"
 path = "examples/basic_usage.rs"
 
-[[example]]
-name = "api_filtering"
-path = "examples/api_filtering.rs"
-
-[[example]]
-name = "dynamic_fields"
-path = "examples/dynamic_fields.rs"
-
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
+
+[features]
+schemars = ["dep:schemars"]
