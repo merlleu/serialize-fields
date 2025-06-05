@@ -99,11 +99,13 @@
 //! let json = serialize_user_with_fields(&user, &fields);
 //! ```
 
-#![doc(html_root_url = "https://docs.rs/serialize_fields/0.1.0")]
+#![doc(html_root_url = "https://docs.rs/serialize_fields/0.2.3")]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 // Re-export the derive macro
 pub use serialize_fields_macro::SerializeFields;
+
+mod macros;
 
 /// Trait for types that can provide field selectors for dynamic serialization.
 ///
