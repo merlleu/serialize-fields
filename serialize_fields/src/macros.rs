@@ -103,7 +103,7 @@ macro_rules! copy_selected_fields {
 /// Create a BTreeSet of enabled field paths that match specified patterns.
 ///
 /// This macro checks which fields are enabled and formats them according to the provided patterns.
-/// It supports multiple outputs per field using the `|` separator for cases where one field
+/// It supports multiple outputs per field using the `;` separator for cases where one field
 /// should map to multiple output values. Field paths use dot notation for nested access.
 ///
 /// # Examples
