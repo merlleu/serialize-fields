@@ -6,13 +6,13 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.2.5"
+version = "0.2.6"
 authors = ["merlleu <crates@merll.eu>"]
 edition = "2024"
 license = "MIT"
-repository = "https://github.com/yourusername/serialize-fields"
+repository = "https://github.com/merlleu/serialize-fields"
 documentation = "https://docs.rs/serialize-fields"
-homepage = "https://github.com/yourusername/serialize-fields"
+homepage = "https://github.com/merlleu/serialize-fields"
 description = "Dynamic field selection for struct serialization in Rust"
 keywords = ["serde", "serialization", "fields", "dynamic", "api"]
 categories = ["encoding", "web-programming"]
