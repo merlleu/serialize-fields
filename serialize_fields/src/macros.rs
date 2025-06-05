@@ -133,11 +133,11 @@ macro_rules! copy_selected_fields {
 ///     profile.avatar => format!("profile_avatar")
 /// });
 ///
-/// // Multiple outputs per field using | separator
+/// // Multiple outputs per field using ; separator
 /// let multi_field_set = filter_field_set!(selector, {
-///     id => "user_id".to_string() | "id".to_string() | "primary_key".to_string(),
-///     name => "user_name".to_string() | "username".to_string(),
-///     profile.bio => "bio".to_string() | "biography".to_string() | "profile_bio".to_string(),
+///     id => "user_id".to_string() ; "id".to_string() ; "primary_key".to_string(),
+///     name => "user_name".to_string() ; "username".to_string(),
+///     profile.bio => "bio".to_string() ; "biography".to_string() ; "profile_bio".to_string(),
 /// });
 ///
 /// // Only enabled fields are included (all outputs for that field)
