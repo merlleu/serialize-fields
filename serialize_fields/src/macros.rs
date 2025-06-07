@@ -50,6 +50,20 @@ macro_rules! contains {
     };
 }
 
+#[macro_export]
+macro_rules! flatten_get_selector {
+    // Handle nested selectors by recursively flattening
+    ($selector:expr, $field:ident) => {
+        $selector.$field
+    };
+    ($selector:expr, $field:ident . $($rest:ident).+) => {
+        match $selector.$field {
+            Some(nested) => $crate::flatten_get_selector!(nested, $($rest).+),
+            None => None,
+        }
+    };
+}
+
 /// Copy selected fields from a source struct to a new struct, using provided blocks for enabled fields.
 ///
 /// For each field, if it's enabled in the field selector, the corresponding block is evaluated.
@@ -87,13 +101,24 @@ macro_rules! contains {
 #[macro_export]
 macro_rules! copy_selected_fields {
     // Main entry point: copy_selected_fields!(selector, StructName { field1: block1, field2: block2, ... })
+    ($selector:ident, $struct_name:ident { $($field:ident: $block:expr),* $(,)? }) => {
+        $struct_name {
+            $(
+                $field: match $crate::flatten_get_selector!($selector, $field) {
+                    #[allow(unused_variables)]
+                    Some($selector) => $block,
+                    None => ::std::default::Default::default()
+                },
+            )*
+        }
+    };
+
     ($selector:expr, $struct_name:ident { $($field:ident: $block:expr),* $(,)? }) => {
         $struct_name {
             $(
-                $field: if $crate::contains!($selector, $field) {
-                    $block
-                } else {
-                    None
+                $field: match $crate::flatten_get_selector!($selector, $field) {
+                    Some(_) => $block,
+                    None => ::std::default::Default::default()
                 },
             )*
         }
