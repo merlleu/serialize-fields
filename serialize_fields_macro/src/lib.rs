@@ -96,6 +96,7 @@ pub fn serialize_fields_derive(input: TokenStream) -> TokenStream {
             });
         } else {
             selector_fields.push(quote! {
+                #[serde(skip_serializing_if = "Option::is_none")]
                 pub #field_name: Option<()>
             });
 
