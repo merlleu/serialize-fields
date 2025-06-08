@@ -104,7 +104,7 @@ macro_rules! copy_selected_fields {
     ($selector:ident, $struct_name:ident { $($field:ident: $block:expr),* $(,)? }) => {
         $struct_name {
             $(
-                $field: match $crate::flatten_get_selector!($selector, $field) {
+                $field: match $crate::flatten_get_selector!($selector, $field).as_ref() {
                     #[allow(unused_variables)]
                     Some($selector) => $block,
                     None => ::std::default::Default::default()
