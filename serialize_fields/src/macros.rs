@@ -58,7 +58,7 @@ macro_rules! flatten_get_selector {
     };
     ($selector:expr, $field:ident . $($rest:ident).+) => {
         match $selector.$field {
-            Some(nested) => $crate::flatten_get_selector!(nested, $($rest).+),
+            Some(nested) => $crate::flatten_get_selector!(nested, $($rest).+).as_ref(),
             None => None,
         }
     };
@@ -104,7 +104,7 @@ macro_rules! copy_selected_fields {
     ($selector:ident, $struct_name:ident { $($field:ident: $block:expr),* $(,)? }) => {
         $struct_name {
             $(
-                $field: match $crate::flatten_get_selector!($selector, $field).as_ref() {
+                $field: match $crate::flatten_get_selector!($selector, $field) {
                     #[allow(unused_variables)]
                     Some($selector) => $block,
                     None => ::std::default::Default::default()
