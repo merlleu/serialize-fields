@@ -54,11 +54,11 @@ macro_rules! contains {
 macro_rules! flatten_get_selector {
     // Handle nested selectors by recursively flattening
     ($selector:expr, $field:ident) => {
-        $selector.$field
+        $selector.$field.as_ref()
     };
     ($selector:expr, $field:ident . $($rest:ident).+) => {
-        match $selector.$field {
-            Some(nested) => $crate::flatten_get_selector!(nested, $($rest).+).as_ref(),
+        match $selector.$field.as_ref() {
+            Some(nested) => $crate::flatten_get_selector!(nested, $($rest).+),
             None => None,
         }
     };
