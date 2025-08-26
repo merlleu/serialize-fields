@@ -28,6 +28,7 @@ use syn::{Data, DeriveInput, Fields, GenericArgument, PathArguments, Type, parse
 ///     id: u32,
 ///     name: String,
 ///     email: Option<String>,
+///     r#type: String, // Raw identifier support
 /// }
 /// ```
 ///
@@ -59,8 +60,13 @@ pub fn serialize_fields_derive(input: TokenStream) -> TokenStream {
     let mut serialize_fields = Vec::new();
 
     for field in fields {
-        let field_name = field.ident.as_ref().unwrap();
-        let field_name_str = field_name.to_string();
+        let field_ident = field.ident.as_ref().unwrap();
+        
+        // Handle raw identifiers (r#keyword)
+        let field_name_str = strip_raw_prefix(&field_ident.to_string());
+        
+        // Create a safe field name for the selector struct (can't use keywords)
+        let field_ident = field_ident;
 
         // Determine if this is a nested struct type that would have SerializeFields
         let (is_nested, nested_type) = analyze_field_type(&field.ty);
@@ -68,61 +74,61 @@ pub fn serialize_fields_derive(input: TokenStream) -> TokenStream {
         if is_nested {
             let nested_selector_type = syn::Ident::new(
                 &format!("{}SerializeFieldSelector", nested_type),
-                field_name.span(),
+                field_ident.span(),
             );
 
             selector_fields.push(quote! {
                 #[serde(skip_serializing_if = "Option::is_none")]
-                pub #field_name: Option<#nested_selector_type>
+                pub #field_ident: Option<#nested_selector_type>
             });
 
             enable_match_arms.push(quote! {
                 #field_name_str => {
-                    match &mut self.#field_name {
+                    match &mut self.#field_ident {
                         Some(nested) => nested.enable(&field_hierarchy[1..]),
                         None => {
                             let mut new_nested = #nested_selector_type::new();
                             new_nested.enable(&field_hierarchy[1..]);
-                            self.#field_name = Some(new_nested);
+                            self.#field_ident = Some(new_nested);
                         }
                     }
                 }
             });
 
             serialize_fields.push(quote! {
-                if let Some(ref nested_selector) = field_selector.#field_name {
-                    state.serialize_field(#field_name_str, &SerializeFields(&data.#field_name, nested_selector))?;
+                if let Some(ref nested_selector) = field_selector.#field_ident {
+                    state.serialize_field(#field_name_str, &SerializeFields(&data.#field_ident, nested_selector))?;
                 }
             });
         } else {
             selector_fields.push(quote! {
                 #[serde(skip_serializing_if = "Option::is_none")]
-                pub #field_name: Option<()>
+                pub #field_ident: Option<()>
             });
 
             enable_match_arms.push(quote! {
-                #field_name_str => self.#field_name = Some(())
+                #field_name_str => self.#field_ident = Some(())
             });
 
             serialize_fields.push(quote! {
-                if field_selector.#field_name.is_some() {
-                    state.serialize_field(#field_name_str, &data.#field_name)?;
+                if field_selector.#field_ident.is_some() {
+                    state.serialize_field(#field_name_str, &data.#field_ident)?;
                 }
             });
         }
 
         new_field_inits.push(quote! {
-            #field_name: None
+            #field_ident: None
         });
     }
 
     // Count enabled fields for serialization
     let count_enabled_fields = fields
         .iter()
-        .map(|field| {
-            let field_name = field.ident.as_ref().unwrap();
+        .map(|field: &syn::Field| {
+            let field_ident = field.ident.as_ref().unwrap();
             quote! {
-                + if field_selector.#field_name.is_some() { 1 } else { 0 }
+                + if field_selector.#field_ident.is_some() { 1 } else { 0 }
             }
         })
         .collect::<Vec<_>>();
@@ -211,6 +217,15 @@ pub fn serialize_fields_derive(input: TokenStream) -> TokenStream {
     };
 
     TokenStream::from(expanded)
+}
+
+/// Strip the r# prefix from raw identifiers
+fn strip_raw_prefix(s: &str) -> String {
+    if s.starts_with("r#") {
+        s[2..].to_string()
+    } else {
+        s.to_string()
+    }
 }
 
 /// Analyze a field type to determine if it's a nested struct and what type it is
