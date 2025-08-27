@@ -231,3 +231,30 @@ macro_rules! field_path {
     ($field:ident) => { $field };
     ($field:ident . $($rest:ident).+) => { $field . $($rest).+ };
 }
+
+/// Helper macro to create nested field selectors.
+/// Usage: create_field_selector!(StructName { field1, field2: NestedStruct { nested_field1, nested_field2 }, ... })
+#[macro_export]
+macro_rules! create_field_selector {
+    // Main entry point
+    ($struct_name:ident { $($fields:tt)* }) => {{
+        let mut selector = <$struct_name as serialize_fields::SerializeFieldsTrait>::FieldSelector::default();
+        $crate::create_field_selector!(@fields selector, $($fields)*);
+        selector
+    }};
+    
+    // Parse fields recursively
+    (@fields $selector:ident,) => {};
+    
+    // Simple field (just identifier)
+    (@fields $selector:ident, $field:ident $(, $($rest:tt)*)?) => {
+        $selector.$field = Some(());
+        $crate::create_field_selector!(@fields $selector, $($($rest)*)?);
+    };
+    
+    // Nested field with struct specification
+    (@fields $selector:ident, $field:ident : $nested_struct:ident { $($nested_fields:tt)* } $(, $($rest:tt)*)?) => {
+        $selector.$field = Some($crate::create_field_selector!($nested_struct { $($nested_fields)* }));
+        $crate::create_field_selector!(@fields $selector, $($($rest)*)?);
+    };
+}
