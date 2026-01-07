@@ -58,3 +58,5 @@ yarn-error.log*
 # Distribution
 dist/
 build/
+
+**/*.local.json
