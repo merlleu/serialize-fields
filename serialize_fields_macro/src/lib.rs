@@ -270,7 +270,7 @@ pub fn serialize_fields_derive(input: TokenStream) -> TokenStream {
     let expanded = quote! {
         /// Enum representing all fields of `#struct_name` for type-safe field selection.
         /// Serializes to dot notation (e.g., "profile.bio").
-        #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+        #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
         pub enum #field_enum_ident {
             #(#enum_variants,)*
         }
@@ -281,6 +281,12 @@ pub fn serialize_fields_derive(input: TokenStream) -> TokenStream {
                 match self {
                     #(#as_dot_path_arms,)*
                 }
+            }
+        }
+
+        impl ::std::fmt::Debug for #field_enum_ident {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+                write!(f, "{}", self.as_dot_path())
             }
         }
 
