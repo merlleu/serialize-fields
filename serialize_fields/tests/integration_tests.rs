@@ -3,9 +3,9 @@
 //! These tests verify the macro works correctly with various struct configurations
 //! and that the generated code functions as expected.
 
-use serialize_fields::{SerializeFields, FieldSelector, SerializeFieldsTrait, contains, copy_selected_fields, filter_field_set};
+use serialize_fields::{SerializeFields, SerializeFieldsTrait, contains, copy_selected_fields, filter_field_set};
 use serde::{Serialize, Deserialize};
-use serde_json::{Value, Map};
+use serde_json::Value;
 
 #[derive(SerializeFields, Serialize, Deserialize, Debug, PartialEq)]
 struct SimpleStruct {
