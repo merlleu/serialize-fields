@@ -30,4 +30,4 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-schemars = ["dep:schemars"]
+schemars = ["dep:schemars", "serialize_fields_macro/schemars"]

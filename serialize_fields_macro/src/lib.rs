@@ -66,7 +66,9 @@ pub fn serialize_fields_derive(input: TokenStream) -> TokenStream {
     let mut enable_enum_match_arms = Vec::new();
     let mut as_dot_path_arms = Vec::new();
     let mut deserialize_match_arms = Vec::new();
+    #[cfg(feature = "schemars")]
     let mut schema_simple_fields: Vec<String> = Vec::new();
+    #[cfg(feature = "schemars")]
     let mut schema_nested_prefixes: Vec<(String, String)> = Vec::new(); // (prefix, nested_type)
 
     for field in fields {
@@ -152,6 +154,7 @@ pub fn serialize_fields_derive(input: TokenStream) -> TokenStream {
                 }
             });
 
+            #[cfg(feature = "schemars")]
             schema_nested_prefixes.push((field_name_str.clone(), nested_type.clone()));
         } else {
             selector_fields.push(quote! {
@@ -186,6 +189,7 @@ pub fn serialize_fields_derive(input: TokenStream) -> TokenStream {
                 #field_name_str => Ok(#field_enum_ident::#variant_ident)
             });
 
+            #[cfg(feature = "schemars")]
             schema_simple_fields.push(field_name_str.clone());
         }
 
@@ -194,7 +198,8 @@ pub fn serialize_fields_derive(input: TokenStream) -> TokenStream {
         });
     }
 
-    // Generate schema nested field tokens
+    // Generate schema nested field tokens (used only with schemars feature)
+    #[cfg(feature = "schemars")]
     let schema_nested_enum_types: Vec<_> = schema_nested_prefixes
         .iter()
         .map(|(_, nested_type)| {
@@ -202,6 +207,7 @@ pub fn serialize_fields_derive(input: TokenStream) -> TokenStream {
             quote! { #ident }
         })
         .collect();
+    #[cfg(feature = "schemars")]
     let schema_nested_prefix_strs: Vec<_> = schema_nested_prefixes
         .iter()
         .map(|(prefix, _)| prefix.clone())
@@ -217,6 +223,48 @@ pub fn serialize_fields_derive(input: TokenStream) -> TokenStream {
             }
         })
         .collect::<Vec<_>>();
+
+    // Generate schemars impl conditionally at macro compile-time
+    #[cfg(feature = "schemars")]
+    let schemars_impl = quote! {
+        impl ::schemars::JsonSchema for #field_enum_ident {
+            fn schema_name() -> ::std::borrow::Cow<'static, str> {
+                ::std::borrow::Cow::Borrowed(stringify!(#field_enum_ident))
+            }
+
+            fn json_schema(generator: &mut ::schemars::SchemaGenerator) -> ::schemars::Schema {
+                // Collect all possible enum values
+                let mut all_values: Vec<String> = Vec::new();
+
+                // Add simple field values
+                #(all_values.push(#schema_simple_fields.to_string());)*
+
+                // For nested fields, get their enum values and prefix them
+                #(
+                    // Call json_schema directly to get the inline schema, not a $ref
+                    let nested_schema = <#schema_nested_enum_types as ::schemars::JsonSchema>::json_schema(generator);
+                    if let Some(obj) = nested_schema.as_object() {
+                        if let Some(enum_values) = obj.get("enum").and_then(|v| v.as_array()) {
+                            for val in enum_values {
+                                if let Some(s) = val.as_str() {
+                                    all_values.push(format!("{}.{}", #schema_nested_prefix_strs, s));
+                                }
+                            }
+                        }
+                    }
+                )*
+
+                ::schemars::json_schema!({
+                    "type": "string",
+                    "enum": all_values,
+                    "description": concat!("Field selector for ", stringify!(#struct_name), " - serializes as dot notation (e.g., \"field.nested\")")
+                })
+            }
+        }
+    };
+
+    #[cfg(not(feature = "schemars"))]
+    let schemars_impl = quote! {};
 
     // Generate the complete implementation
     let expanded = quote! {
@@ -272,41 +320,7 @@ pub fn serialize_fields_derive(input: TokenStream) -> TokenStream {
             }
         }
 
-        #[cfg(feature = "schemars")]
-        impl ::schemars::JsonSchema for #field_enum_ident {
-            fn schema_name() -> ::std::borrow::Cow<'static, str> {
-                ::std::borrow::Cow::Borrowed(stringify!(#field_enum_ident))
-            }
-
-            fn json_schema(generator: &mut ::schemars::SchemaGenerator) -> ::schemars::Schema {
-                // Collect all possible enum values
-                let mut all_values: Vec<String> = Vec::new();
-
-                // Add simple field values
-                #(all_values.push(#schema_simple_fields.to_string());)*
-
-                // For nested fields, get their enum values and prefix them
-                #(
-                    // Call json_schema directly to get the inline schema, not a $ref
-                    let nested_schema = <#schema_nested_enum_types as ::schemars::JsonSchema>::json_schema(generator);
-                    if let Some(obj) = nested_schema.as_object() {
-                        if let Some(enum_values) = obj.get("enum").and_then(|v| v.as_array()) {
-                            for val in enum_values {
-                                if let Some(s) = val.as_str() {
-                                    all_values.push(format!("{}.{}", #schema_nested_prefix_strs, s));
-                                }
-                            }
-                        }
-                    }
-                )*
-
-                ::schemars::json_schema!({
-                    "type": "string",
-                    "enum": all_values,
-                    "description": concat!("Field selector for ", stringify!(#struct_name), " - serializes as dot notation (e.g., \"field.nested\")")
-                })
-            }
-        }
+        #schemars_impl
 
         #[derive(Debug, Clone, PartialEq, Eq, Hash, ::serde::Serialize)]
         pub struct #selector_ident {
