@@ -270,7 +270,7 @@ pub fn serialize_fields_derive(input: TokenStream) -> TokenStream {
     let expanded = quote! {
         /// Enum representing all fields of `#struct_name` for type-safe field selection.
         /// Serializes to dot notation (e.g., "profile.bio").
-        #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+        #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
         pub enum #field_enum_ident {
             #(#enum_variants,)*
         }
