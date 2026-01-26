@@ -2,16 +2,16 @@
 
 A Rust procedural macro that enables **dynamic field selection** for struct serialization. Control exactly which fields get serialized at runtime using a hierarchical field selector system.
 
-## ✨ Features
+## Features
 
-- 🎯 **Dynamic Field Selection**: Choose which fields to serialize at runtime
-- 🌳 **Hierarchical Selection**: Use dot notation for nested structs (`"user.profile.name"`)
-- 🔧 **Type Safe**: Compile-time validation of field paths
-- 🚀 **Zero Runtime Cost**: Only enabled fields are processed during serialization
-- 📦 **Serde Integration**: Works seamlessly with the serde ecosystem
-- 🔄 **Collection Support**: Handles `Vec`, `Option`, `HashMap`, and other containers
+- **Dynamic Field Selection**: Choose which fields to serialize at runtime
+- **Hierarchical Selection**: Use dot notation for nested structs (`"user.profile.name"`)
+- **Type Safe**: Compile-time validation of field paths
+- **Zero Runtime Cost**: Only enabled fields are processed during serialization
+- **Serde Integration**: Works seamlessly with the serde ecosystem
+- **Collection Support**: Handles `Vec`, `Option`, `HashMap`, and other containers
 
-## 🚀 Quick Start
+## Quick Start
 
 Add to your `Cargo.toml`:
 
@@ -22,7 +22,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 ```
 
-## 📖 Basic Usage
+## Basic Usage
 
 ```rust
 use serialize_fields::{SerializeFields, SerializeFieldsTrait};
@@ -76,7 +76,7 @@ fn main() {
 }
 ```
 
-## 🎨 Advanced Examples
+## Advanced Examples
 
 ### API Response Filtering
 
